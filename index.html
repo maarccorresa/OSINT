@@ -14,9 +14,17 @@
 <section class="hero"><p class="eyebrow">OPEN SOURCE INTELLIGENCE</p><h1>Investiga. Connecta.<br><em>Entén la informació.</em></h1><p class="intro">Centralitza cerques d'identificadors i consulta fonts públiques globals, amb cobertura europea.</p></section>
 <section class="search-panel">
 <div class="section-head"><div><p class="eyebrow">01 / NOVA CONSULTA</p><h2>Cerca un identificador</h2></div><span class="tag">OPEN APIs</span></div>
+<div class="search-modes" role="group" aria-label="Tipus de cerca">
+<button class="mode-btn active" type="button" data-mode="email" aria-pressed="true"><span>✉</span><small>Correu</small></button>
+<button class="mode-btn" type="button" data-mode="phone" aria-pressed="false"><span>☎</span><small>Telèfon</small></button>
+<button class="mode-btn" type="button" data-mode="ip" aria-pressed="false"><span>⌁</span><small>IP</small></button>
+<button class="mode-btn" type="button" data-mode="domain" aria-pressed="false"><span>◎</span><small>Domini</small></button>
+<button class="mode-btn" type="button" data-mode="subdomains" aria-pressed="false"><span>⌘</span><small>Subdominis</small></button>
+<button class="mode-btn" type="button" data-mode="username" aria-pressed="false"><span>@</span><small>Username</small></button>
+</div>
 <form id="search-form">
-<label for="term">Telèfon, correu, username, IP o domini</label>
-<div class="search-row"><input id="term" name="term" autocomplete="off" placeholder="+34600000000, correu@domini.eu, IP o domini" required maxlength="254"><button id="search-btn" type="submit"><span>⌕</span> Investigar</button></div>
+<label id="term-label" for="term">Adreça de correu</label>
+<div class="search-row"><input id="term" name="term" autocomplete="off" placeholder="nom@domini.cat" required maxlength="254"><button id="search-btn" type="submit"><span>⌕</span> Investigar</button></div>
 <p class="hint">Les consultes s'envien a serveis públics externs. Els resultats depenen de la cobertura de cada font. No facis cerques sobre dades personals sense autorització.</p>
 </form>
 </section>
