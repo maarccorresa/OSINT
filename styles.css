@@ -29,3 +29,23 @@
 .mode-btn svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .mode-btn.active svg{color:var(--green)}
 
+
+
+/* Resultats resumits i llegibles */
+.results-intro{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.6}
+.result-card{padding:17px 18px;margin-top:13px}
+.result-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.result-card h3{font-size:14px;line-height:1.4;margin:0}
+.source-label{flex:none;color:#9aabb9;font:9px 'DM Mono';border:1px solid #2a3946;border-radius:4px;padding:5px 7px}
+.result-description{font-size:11px!important;color:var(--muted);line-height:1.65;margin:10px 0 0!important}
+.result-fields{margin-top:13px}
+.result-field{background:#0d151e;padding:11px 12px}
+.result-value{font-size:12px;line-height:1.6}
+.result-list{margin:0;padding-left:17px}
+.result-list li{padding:2px 0;overflow-wrap:anywhere}
+.result-notice{font-size:11px;line-height:1.6;padding:11px 13px;border:1px solid var(--line);border-radius:7px;color:var(--muted)}
+.result-notice.info{background:#101923}
+.tag-success{color:var(--green);border-color:#607d3b}
+.tag-error{color:#ffaaaa;border-color:#8d4949}
+.error{background:#261719;border:1px solid #60383c;border-radius:8px;padding:14px;color:#ffb7b7;line-height:1.6}
+@media(max-width:620px){.result-card-head{align-items:flex-start;flex-direction:column;gap:8px}.source-label{font-size:8px}.result-card{padding:15px}}
