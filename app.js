@@ -285,10 +285,11 @@ async function lookupSubdomains(apex) {
   let records = [];
   if (Array.isArray(data)) records = data;
   else if (data && typeof data === "object") {
-    records = Array.isArray(data.subdomains) ? data.subdomains :
-      Array.isArray(data.results) ? data.results :
-      Array.isArray(data.data) ? data.data :
-      Array.isArray(data.names) ? data.names : [];
+    const payload = data.data && !Array.isArray(data.data) ? data.data : data;
+    records = Array.isArray(payload.subdomains) ? payload.subdomains :
+      Array.isArray(payload.results) ? payload.results :
+      Array.isArray(payload.names) ? payload.names :
+      Array.isArray(payload.data) ? payload.data : [];
   }
 
   const names = records.map(item => {
