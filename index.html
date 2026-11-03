@@ -11,7 +11,7 @@
 <div class="shell">
 <header class="topbar"><a class="brand" href="#"><span class="brand-mark">O</span><span>OSINT<span class="brand-sub">INTELLIGENCE WORKSPACE</span></span></a><span class="status"><i></i> PUBLIC SOURCES</span></header>
 <main>
-<section class="hero"><p class="eyebrow">OPEN SOURCE INTELLIGENCE</p><h1>Investiga. Connecta.<br><em>Entén la informació.</em></h1><p class="intro">Centralitza cerques d'identificadors i consulta fonts públiques globals, amb cobertura europea.</p></section>
+<section class="hero"><p class="eyebrow">OPEN SOURCE INTELLIGENCE</p><h1>Investiga. Connecta.<br><em>Entén la informació.</em></h1><p class="intro">Consulta informació pública i rep resultats resumits, explicats i fàcils d'entendre.</p></section>
 <section class="search-panel">
 <div class="section-head"><div><p class="eyebrow">01 / NOVA CONSULTA</p><h2>Cerca un identificador</h2></div><span class="tag">OPEN APIs</span></div>
 <div class="search-modes" role="group" aria-label="Tipus de cerca">
@@ -25,17 +25,17 @@
 <form id="search-form">
 <label id="term-label" for="term">Adreça de correu</label>
 <div class="search-row"><input id="term" name="term" autocomplete="off" placeholder="nom@domini.cat" required maxlength="254"><button id="search-btn" type="submit"><span>⌕</span> Investigar</button></div>
-<p class="hint">Les consultes s'envien a serveis públics externs. Els resultats depenen de la cobertura de cada font. No facis cerques sobre dades personals sense autorització.</p>
+<p class="hint">Les dades provenen de serveis públics externs i poden ser incompletes. Fes servir aquesta eina només amb finalitats legítimes i amb autorització.</p>
 </form>
 </section>
 <section id="results" class="results hidden" aria-live="polite"><div class="section-head"><div><p class="eyebrow">02 / RESULTATS</p><h2 id="result-title">Resultat de la consulta</h2></div><span id="result-state" class="tag">PENDENT</span></div><div id="result-body"></div></section>
 <section class="history-panel"><div class="section-head"><div><p class="eyebrow">03 / ACTIVITAT</p><h2>Cerques recents</h2></div><button id="clear-history" class="text-button" type="button">Esborrar historial</button></div><div id="history" class="history-empty">Encara no has fet cap consulta.</div></section>
 <section class="history-panel">
 <div class="section-head"><div><p class="eyebrow">04 / FONTS</p><h2>Fonts públiques</h2></div></div>
-<div class="history-empty">Email: XposedOrNot · Telèfon: libphonenumber-js · IP: RIPEstat i RDAP · Domini: Cloudflare DNS i RDAP · Username: GitHub.</div>
+<div class="history-empty">Correu: XposedOrNot · Telèfon: libphonenumber-js · IP: Shodan i RDAP · Domini: Cloudflare DNS i RDAP · Subdominis: crt.name · Username: GitHub.</div>
 </section>
 </main>
-<footer><span>OSINT WORKSPACE</span><span>Historial local · APIs externes públiques</span></footer>
+<footer><span>OSINT WORKSPACE</span><span>Historial local · Fonts públiques externes</span></footer>
 </div>
 <nav class="tabbar" aria-label="Navegació"><a class="active" href="#"><span>⌂</span>Inici</a><a href="#search-form"><span>⌕</span>Cercar</a><a href="#history"><span>◷</span>Historial</a></nav>
 <script src="./app.js" defer></script>
