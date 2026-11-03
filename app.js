@@ -304,7 +304,7 @@ async function investigate(term) {
   intro.textContent = MODE_CONFIG[mode].title + " · Font: " + (mode === "subdomains" ? "crt.name" : SOURCES[mode]);
   body.append(intro);
   if (mode === "email") {
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(term)) throw new Error("Introdueix una adreça de correu vàlida.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)) throw new Error("Introdueix una adreça de correu vàlida.");
     await lookupEmail(term);
   } else if (mode === "phone") await lookupPhone(term);
   else if (mode === "ip") {
