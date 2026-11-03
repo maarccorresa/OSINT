@@ -8,20 +8,24 @@ PWA per consultar identificadors amb fonts públiques, sense API keys ni comptes
 3. No cal desplegar cap backend ni configurar credencials.
 
 ## Fonts integrades
-- **Email:** XposedOrNot `GET https://api.xposedornot.com/v1/check-email/{email}`. L'API gratuïta no requereix clau per aquest endpoint. Té límits per IP: 2 peticions/segon, 25/hora i 100/dia. Els endpoints de domini sí que requereixen clau. Documentació: https://xposedornot.com/api_doc
-- **Telèfon:** libphonenumber-js carregada des de jsDelivr. Valida i normalitza números internacionals; no identifica titulars ni operadora. Documentació: https://github.com/catamphetamine/libphonenumber-js
-- **IP:** Shodan InternetDB (ports, hostnames i vulnerabilitats observades) + RDAP públic resumit. No requereix API key.
-- **Domini:** Cloudflare DNS over HTTPS (A, AAAA, MX, NS, TXT) + RDAP. DNS docs: https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/
-- **Subdominis:** crt.name, índex públic sense API key; pot incloure noms històrics que ja no resolen.
-- **Username:** perfil públic de GitHub. Sense token, l'API REST té un límit general de 60 peticions/hora per IP; els endpoints de cerca tenen límits més baixos. Docs: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
+- **Correu:** XposedOrNot. Retorna noms de filtracions conegudes associades al correu consultat. No mostra contrasenyes. L'API gratuïta no requereix clau per aquest endpoint i aplica límits per IP. Documentació: https://xposedornot.com/api_doc
+- **Telèfon:** libphonenumber-js. Valida i normalitza números internacionals i pot indicar país i tipus de línia. No identifica titulars ni confirma que el número estigui actiu. Documentació: https://github.com/catamphetamine/libphonenumber-js
+- **IP:** Shodan InternetDB (ports, noms associats i vulnerabilitats observades) + RDAP (organització responsable del rang). No requereix API key.
+- **Domini:** Cloudflare DNS over HTTPS (A, AAAA, MX, NS i TXT) + RDAP (registrador, dates, estat i servidors DNS).
+- **Subdominis:** índex públic crt.name, consultat a través de https://proxy.cors.dev perquè crt.name no permet peticions directes des del navegador (CORS). No requereix API key ni registre. L'índex pot contenir noms històrics que ja no estan actius.
+- **Username:** perfil públic de GitHub. Sense token, subjecte als límits públics de l'API.
 
-## Limitacions
-- Les fonts són globals, no exclusivament europees. La cobertura d'un número o IP depèn de la font.
-- La validació telefònica no revela el titular ni confirma que el número estigui actiu.
-- GitHub només comprova si existeix un perfil amb aquell username a GitHub, no a totes les xarxes.
-- Les APIs externes poden tenir límits, canviar o bloquejar peticions del navegador (CORS). Si una font bloqueja CORS, caldrà un proxy públic propi o una alternativa compatible; no s'ha d'afegir cap clau secreta al frontend.
-- Els resultats de filtracions poden ser incomplets. No es mostren contrasenyes ni hashes.
-- L'historial es desa al localStorage del navegador i es pot esborrar.
+## Com s'interpreten els resultats
+- Els resultats es resumeixen amb etiquetes clares i context per evitar confondre dades tècniques amb conclusions.
+- Els ports i vulnerabilitats de Shodan són observacions de l'índex, no una auditoria ni un escaneig en directe.
+- RDAP identifica l'organització que gestiona un rang d'IP; no identifica necessàriament la persona que l'està fent servir.
+- Un registre DNS absent no demostra que un servei no existeixi.
+- Els subdominis de crt.name són noms recollits per l'índex; cal comprovar-ne la resolució abans de considerar-los actius.
+- La validació telefònica no revela el titular ni confirma que la línia estigui activa.
+- GitHub només comprova l'existència d'un perfil a GitHub, no a altres xarxes.
 
-## Privacitat i ús
-Les cerques s'envien als proveïdors indicats. No facis consultes sobre dades personals sense autorització i revisa les condicions d'ús de cada font.
+## Limitacions i privacitat
+- Les consultes es fan des del navegador a proveïdors externs. En el cas de subdominis, la consulta també passa per un proxy CORS públic sense clau; aquest servei pot veure el domini consultat.
+- Els serveis externs poden limitar consultes, canviar o deixar de respondre. Si el proxy públic no està disponible, la resta de funcions continuen funcionant.
+- No introdueixis dades sensibles ni facis consultes sobre persones sense una base legítima i autorització.
+- L'historial es desa només al localStorage del navegador i es pot esborrar des de l'aplicació.
