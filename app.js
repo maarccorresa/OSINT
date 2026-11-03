@@ -282,43 +282,98 @@ async function lookupPhone(phone) {
   if (info.valid) await lookupPhoneIntel(parsed.number);
 }
 async function lookupIP(ip) {
-  card("Consultar a Shodan", "Shodan", { "Fitxa de Shodan": "https://www.shodan.io/host/" + ip }, "Obre la fitxa pública de Shodan; algunes dades poden requerir iniciar sessió");
-  const tasks = [
-    ["RIPEstat — informació de registre", "RIPEstat", "https://stat.ripe.net/data/whois/data.json?resource=" + encodeURIComponent(ip)],
-    ["RIPEstat — informació de routing", "RIPEstat", "https://stat.ripe.net/data/network-info/data.json?resource=" + encodeURIComponent(ip)],
-    ["RDAP — registre de xarxa", "RDAP", "https://rdap.org/ip/" + encodeURIComponent(ip)]
-  ];
-  const results = await Promise.allSettled(tasks.map(t => getJSON(t[2])));
-  let count = 0;
-  results.forEach((r, i) => {
-    if (r.status === "fulfilled") { card(tasks[i][0], tasks[i][1], r.value); count++; }
-    else card(tasks[i][0] + " — no disponible", tasks[i][1], { error: r.reason.message });
-  });
-  if (!count) throw new Error("Cap de les fonts d'IP ha respost. Pot ser una incidència temporal o un bloqueig CORS.");
+  const shodanUrl = "https://internetdb.shodan.io/" + encodeURIComponent(ip);
+  const rdapUrl = "https://rdap.org/ip/" + encodeURIComponent(ip);
+  const [shodanResult, rdapResult] = await Promise.allSettled([
+    getJSON(shodanUrl),
+    getJSON(rdapUrl)
+  ]);
+
+  if (shodanResult.status === "fulfilled") {
+    const data = shodanResult.value;
+    const ports = Array.isArray(data.ports) ? data.ports : [];
+    const vulns = Array.isArray(data.vulns) ? data.vulns : [];
+    const hostnames = Array.isArray(data.hostnames) ? data.hostnames : [];
+    card("Serveis exposats", "Shodan InternetDB", {
+      "Ports oberts detectats": ports.length ? ports.join(", ") : "Cap port registrat",
+      "Noms de host": hostnames.length ? hostnames : "Cap nom registrat",
+      "Vulnerabilitats conegudes": vulns.length ? vulns : "Cap vulnerabilitat registrada",
+      "Fitxa completa": "https://www.shodan.io/host/" + ip
+    }, "Dades de l'última observació de Shodan; no és un escaneig en temps real.");
+  } else {
+    card("Serveis exposats", "Shodan InternetDB", {
+      "Estat": "No s'han pogut obtenir dades",
+      "Motiu": shodanResult.reason?.message || "Font no disponible",
+      "Fitxa Shodan": "https://www.shodan.io/host/" + ip
+    });
+  }
+
+  if (rdapResult.status === "fulfilled") {
+    const data = rdapResult.value;
+    const events = Array.isArray(data.events) ? data.events : [];
+    const event = action => events.find(item => item.eventAction === action)?.eventDate || null;
+    const entities = Array.isArray(data.entities) ? data.entities : [];
+    const registrar = entities.find(item => (item.roles || []).includes("registrant") || (item.roles || []).includes("registrar"));
+    const network = data.startAddress && data.endAddress
+      ? data.startAddress + " – " + data.endAddress : "No disponible";
+    card("Resum de la IP", "RDAP", {
+      "Xarxa": network,
+      "País": data.country || "No identificat",
+      "Organització": data.name || data.handle || "No disponible",
+      "Tipus de registre": data.type || "No disponible",
+      "Data de registre": event("registration"),
+      "Última actualització": event("last changed")
+    }, "Informació de registre de l'adreça IP.");
+  } else {
+    card("Registre de la IP", "RDAP", {
+      "Estat": "Informació de registre no disponible"
+    });
+  }
 }
 async function lookupSubdomains(apex) {
   const url = "https://crt.name/v1/search?apex=" + encodeURIComponent(apex) + "&format=json&dates=1";
-  const data = await getJSON(url);
-  // L'API pot retornar una llista plana o un objecte amb subdomains.
-  const records = Array.isArray(data) ? data :
-    Array.isArray(data.subdomains) ? data.subdomains :
-    Array.isArray(data.results) ? data.results :
-    Array.isArray(data.data) ? data.data : [];
+  const response = await fetch(url, { headers: { "Accept": "application/json, text/plain" } });
+  const raw = await response.text();
+  if (!response.ok) {
+    const error = new Error("crt.name ha respost HTTP " + response.status);
+    error.status = response.status;
+    throw error;
+  }
+
+  let data;
+  try { data = raw ? JSON.parse(raw) : []; }
+  catch { data = raw.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean); }
+
+  let records = [];
+  if (Array.isArray(data)) records = data;
+  else if (data && typeof data === "object") {
+    records = Array.isArray(data.subdomains) ? data.subdomains :
+      Array.isArray(data.results) ? data.results :
+      Array.isArray(data.data) ? data.data :
+      Array.isArray(data.names) ? data.names : [];
+  }
+
   const names = records.map(item => {
-    if (typeof item === "string") return { subdomain: item, first_seen: null };
+    if (typeof item === "string") return { subdomain: item.trim(), first_seen: null };
     if (!item || typeof item !== "object") return null;
     return {
-      subdomain: item.subdomain || item.hostname || item.name || item.domain || "",
+      subdomain: String(item.subdomain || item.hostname || item.name || item.domain || "").trim(),
       first_seen: item.first_seen || item.firstSeen || item.date || null
     };
-  }).filter(item => item && item.subdomain);
+  }).filter(item => item && item.subdomain && (
+    item.subdomain.toLowerCase() === apex.toLowerCase() ||
+    item.subdomain.toLowerCase().endsWith("." + apex.toLowerCase()) ||
+    item.subdomain.startsWith("*.")
+  ));
+
   const unique = [...new Map(names.map(item => [item.subdomain.toLowerCase(), item])).values()]
     .sort((a, b) => a.subdomain.localeCompare(b.subdomain));
+
   card("Subdominis descoberts", "crt.name", {
-    domain: apex,
-    count: data.count ?? unique.length,
-    subdomains: unique
-  }, "Índex passiu: pot incloure subdominis antics o que ja no existeixen");
+    "Domini consultat": apex,
+    "Resultats": unique.length,
+    "Subdominis": unique.length ? unique.map(item => item.subdomain) : "No s'han trobat subdominis"
+  }, "Resultats de l'índex públic. Alguns noms poden ser antics o ja no estar actius.");
 }
 async function lookupDomain(raw) {
   const domain = normalizeDomain(raw);
