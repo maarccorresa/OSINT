@@ -1,0 +1,16 @@
+const API_URL = "https://YOUR-WORKER.workers.dev"; // Substitueix-ho per la URL del teu Cloudflare Worker.
+const $ = (s) => document.querySelector(s);
+const form = $("#search-form"), input = $("#term"), button = $("#search-btn");
+const panel = $("#results"), body = $("#result-body"), state = $("#result-state");
+const HISTORY_KEY = "osint-search-history-v1";
+let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+function renderHistory(){const el=$("#history");if(!history.length){el.className="history-empty";el.textContent="Encara no has fet cap consulta.";return;}el.className="";el.replaceChildren();history.slice(0,12).forEach(item=>{const row=document.createElement("div");row.className="history-item";const term=document.createElement("span");term.textContent=item.term;const date=document.createElement("small");date.textContent=new Date(item.date).toLocaleString("ca-ES");row.append(term,date);el.append(row);});}
+function showError(message){panel.classList.remove("hidden");state.textContent="ERROR";body.replaceChildren();const p=document.createElement("p");p.className="error";p.textContent=message;body.append(p);}
+function safeText(value){return typeof value==="string"?value:JSON.stringify(value,null,2);}
+form.addEventListener("submit",async event=>{event.preventDefault();const term=input.value.trim();if(!term)return;if(API_URL.includes("YOUR-WORKER")){showError("Encara falta configurar la URL del Cloudflare Worker. Consulta el README per desplegar el proxy.");return;}button.disabled=true;button.textContent="Consultant…";panel.classList.remove("hidden");state.textContent="CONSULTANT";body.replaceChildren();const loading=document.createElement("p");loading.textContent="Connectant amb BreachDirectory…";body.append(loading);
+try{const response=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({term})});const data=await response.json();if(!response.ok)throw new Error(data.error||"La consulta ha fallat.");state.textContent=data.found===true?"COINCIDÈNCIES":"CONSULTA COMPLETADA";body.replaceChildren();const card=document.createElement("div");card.className="result-card";const h=document.createElement("h3");h.textContent=data.found===true?"S'han trobat possibles coincidències":"Resposta de la font";const p=document.createElement("p");p.textContent="Font: BreachDirectory · Identificador: "+term;const pre=document.createElement("pre");pre.className="result-data";pre.textContent=safeText(data.result);card.append(h,p,pre);body.append(card);history.unshift({term,date:new Date().toISOString()});history=history.slice(0,30);localStorage.setItem(HISTORY_KEY,JSON.stringify(history));renderHistory();}
+catch(error){showError(error.message||"No s'ha pogut completar la consulta.");}
+finally{button.disabled=false;button.innerHTML="<span>⌕</span> Investigar";}});
+$("#clear-history").addEventListener("click",()=>{history=[];localStorage.removeItem(HISTORY_KEY);renderHistory();});
+renderHistory();
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
