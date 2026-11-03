@@ -209,6 +209,30 @@ async function lookupIP(ip) {
   });
   if (!count) throw new Error("Cap de les fonts d'IP ha respost. Pot ser una incidència temporal o un bloqueig CORS.");
 }
+async function lookupSubdomains(apex) {
+  const url = "https://crt.name/v1/search?apex=" + encodeURIComponent(apex) + "&format=json&dates=1";
+  const data = await getJSON(url);
+  // L'API pot retornar una llista plana o un objecte amb subdomains.
+  const records = Array.isArray(data) ? data :
+    Array.isArray(data.subdomains) ? data.subdomains :
+    Array.isArray(data.results) ? data.results :
+    Array.isArray(data.data) ? data.data : [];
+  const names = records.map(item => {
+    if (typeof item === "string") return { subdomain: item, first_seen: null };
+    if (!item || typeof item !== "object") return null;
+    return {
+      subdomain: item.subdomain || item.hostname || item.name || item.domain || "",
+      first_seen: item.first_seen || item.firstSeen || item.date || null
+    };
+  }).filter(item => item && item.subdomain);
+  const unique = [...new Map(names.map(item => [item.subdomain.toLowerCase(), item])).values()]
+    .sort((a, b) => a.subdomain.localeCompare(b.subdomain));
+  card("Subdominis descoberts", "crt.name", {
+    domain: apex,
+    count: data.count ?? unique.length,
+    subdomains: unique
+  }, "Índex passiu: pot incloure subdominis antics o que ja no existeixen");
+}
 async function lookupDomain(raw) {
   const domain = normalizeDomain(raw);
   if (!domain || !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain))
@@ -228,6 +252,14 @@ async function lookupDomain(raw) {
     const rdap = await getJSON("https://rdap.org/domain/" + encodeURIComponent(domain));
     card("Registre del domini (RDAP)", "RDAP", rdap);
   } catch (error) { card("Registre RDAP — no disponible", "RDAP", { error: error.message }); }
+  try {
+    await lookupSubdomains(domain);
+  } catch (error) {
+    card("Enumeració de subdominis — no disponible", "crt.name", {
+      error: error.message,
+      domain
+    }, "Comprova que has introduït el domini principal (eTLD+1), no un subdomini");
+  }
 }
 async function lookupUsername(username) {
   const clean = username.replace(/^@/, "");
