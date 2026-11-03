@@ -32,7 +32,7 @@ try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch {
 
 const SOURCES = {
   email: "XposedOrNot",
-  phone: "libphonenumber-js + TrueCNAM + Call Control",
+  phone: "libphonenumber-js",
   ip: "RIPEstat + RDAP",
   domain: "Cloudflare DNS + RDAP",
   username: "GitHub"
@@ -199,67 +199,6 @@ async function lookupEmail(email) {
   card(breaches.length ? "Correu trobat en filtracions" : "No consta en les filtracions consultades", SOURCES.email, data,
     breaches.length + " filtració(ns) retornada(es)");
 }
-const PHONE_API_STORAGE_KEY = "osint-phone-intel-endpoint";
-function phoneApiEndpoint() {
-  return (localStorage.getItem(PHONE_API_STORAGE_KEY) || "").trim().replace(/\/$/, "");
-}
-function renderPhoneIntel(data) {
-  const tc = data?.truecnam || {};
-  if (tc.status === "ok") {
-    card("Identificació de trucades", "TrueCNAM", {
-      "Nom associat al número": tc.name || "No trobat a la base de dades",
-      "Puntuació de spam": tc.spamScore ?? "No disponible",
-      "Coincidència de nom": tc.matched,
-      "Identificador de trucada": tc.trueClid || "No disponible"
-    }, "El nom és una dada de la base de dades, no una prova de titularitat.");
-  } else {
-    card("TrueCNAM", "TrueCNAM", {
-      "Estat": tc.status === "not_configured" ? "Falta configurar les credencials a Cloudflare" : "No s'ha pogut consultar",
-      "Detall": tc.message || "No hi ha dades disponibles"
-    });
-  }
-  const cc = data?.callcontrol || {};
-  if (cc.status === "ok") {
-    card("Reputació i possibles trucades no desitjades", "Call Control", {
-      "Nom comunicat": cc.reportedName || "No identificat",
-      "És spam": cc.spam,
-      "Confiança": cc.confidence == null ? "No disponible" : cc.confidence + " / 10",
-      "Tipus de trucada": cc.callType || "No classificat",
-      "Última denúncia": cc.lastReport || "No disponible",
-      "Etiquetes": cc.tags?.length ? cc.tags : "Cap etiqueta disponible"
-    }, "Les denúncies comunitàries poden ser incompletes o errònies.");
-  } else {
-    card("Call Control", "Call Control", {
-      "Estat": cc.status === "not_configured" ? "Falta configurar la clau API a Cloudflare" : "No s'ha pogut consultar",
-      "Detall": cc.message || "No hi ha dades disponibles"
-    });
-  }
-}
-async function lookupPhoneIntel(phone) {
-  const endpoint = phoneApiEndpoint();
-  if (!endpoint) {
-    card("Identificació del número", "TrueCNAM + Call Control", {
-      "Estat": "Configuració pendent",
-      "Què falta": "Configura el Cloudflare Worker i les credencials de les dues APIs."
-    }, "La informació bàsica del número continua disponible.");
-    return;
-  }
-  try {
-    const response = await fetch(endpoint + "/phone", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
-    renderPhoneIntel(data);
-  } catch (error) {
-    card("Identificació del número no disponible", "TrueCNAM + Call Control", {
-      "Estat": "No s'ha pogut connectar amb el servei",
-      "Detall": error.message || "Comprova la configuració del servidor."
-    });
-  }
-}
 async function lookupPhone(phone) {
   const lib = window.libphonenumber;
   if (!lib || !lib.parsePhoneNumberFromString) {
@@ -279,7 +218,6 @@ async function lookupPhone(phone) {
   };
   card(info.valid ? "Informació del número" : "Número no vàlid o incomplet", SOURCES.phone, info,
     "Validació de format; el país i el tipus no identifiquen el titular.");
-  if (info.valid) await lookupPhoneIntel(parsed.number);
 }
 async function lookupIP(ip) {
   const shodanUrl = "https://internetdb.shodan.io/" + encodeURIComponent(ip);
@@ -456,24 +394,5 @@ form.addEventListener("submit", async event => {
 $("#clear-history").addEventListener("click", () => {
   history = []; localStorage.removeItem(HISTORY_KEY); renderHistory();
 });
-const phoneEndpointInput = $("#phone-api-endpoint");
-const phoneEndpointStatus = $("#phone-api-status");
-if (phoneEndpointInput) {
-  phoneEndpointInput.value = phoneApiEndpoint();
-  if (phoneEndpointStatus && phoneApiEndpoint()) phoneEndpointStatus.textContent = "Servidor configurat.";
-  $("#save-phone-api").addEventListener("click", () => {
-    const rawValue = phoneEndpointInput.value.trim();
-    const raw = rawValue.endsWith("/") ? rawValue.slice(0, -1) : rawValue;
-    try {
-      const url = new URL(raw);
-      if (url.protocol !== "https:") throw new Error();
-      localStorage.setItem(PHONE_API_STORAGE_KEY, url.origin);
-      phoneEndpointInput.value = url.origin;
-      phoneEndpointStatus.textContent = "Adreça desada en aquest dispositiu.";
-    } catch {
-      phoneEndpointStatus.textContent = "Introdueix una adreça HTTPS vàlida del Cloudflare Worker.";
-    }
-  });
-}
 renderHistory();
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
