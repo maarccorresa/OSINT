@@ -2,6 +2,30 @@
 const $ = (s) => document.querySelector(s);
 const form = $("#search-form"), input = $("#term"), button = $("#search-btn");
 const panel = $("#results"), body = $("#result-body"), state = $("#result-state");
+const modeButtons = [...document.querySelectorAll(".mode-btn")];
+const MODE_CONFIG = {
+  email: { label: "Adreça de correu", placeholder: "nom@domini.cat", title: "Cerca de correu" },
+  phone: { label: "Número de telèfon", placeholder: "+34600000000", title: "Cerca de telèfon" },
+  ip: { label: "Adreça IP", placeholder: "1.1.1.1", title: "Cerca d'adreça IP" },
+  domain: { label: "Domini", placeholder: "exemple.cat", title: "Cerca de domini" },
+  subdomains: { label: "Domini principal", placeholder: "exemple.cat", title: "Enumeració de subdominis" },
+  username: { label: "Nom d'usuari de GitHub", placeholder: "octocat", title: "Cerca de username" }
+};
+let selectedMode = "email";
+function setMode(mode) {
+  if (!MODE_CONFIG[mode]) return;
+  selectedMode = mode;
+  modeButtons.forEach(btn => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", String(active));
+  });
+  $("#term-label").textContent = MODE_CONFIG[mode].label;
+  input.placeholder = MODE_CONFIG[mode].placeholder;
+  input.value = "";
+  input.focus();
+}
+modeButtons.forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
 const HISTORY_KEY = "osint-search-history-v2";
 let history = [];
 try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { history = []; }
@@ -274,14 +298,24 @@ async function lookupUsername(username) {
   card("Perfil públic de GitHub", "GitHub REST API", summary, "Només comprova aquest username a GitHub");
 }
 async function investigate(term) {
-  const type = classify(term);
+  const mode = selectedMode;
   state.textContent = "CONSULTANT"; body.replaceChildren();
-  const intro = document.createElement("p"); intro.textContent = "Tipus detectat: " + type.toUpperCase() + " · Fonts públiques"; body.append(intro);
-  if (type === "email") await lookupEmail(term);
-  else if (type === "phone") await lookupPhone(term);
-  else if (type === "ip") await lookupIP(term);
-  else if (type === "domain") await lookupDomain(term);
-  else await lookupUsername(term);
+  const intro = document.createElement("p");
+  intro.textContent = MODE_CONFIG[mode].title + " · Font: " + (mode === "subdomains" ? "crt.name" : SOURCES[mode]);
+  body.append(intro);
+  if (mode === "email") {
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(term)) throw new Error("Introdueix una adreça de correu vàlida.");
+    await lookupEmail(term);
+  } else if (mode === "phone") await lookupPhone(term);
+  else if (mode === "ip") {
+    if (!isIPv4(term) && !isIPv6(term)) throw new Error("Introdueix una adreça IPv4 o IPv6 vàlida.");
+    await lookupIP(term);
+  } else if (mode === "domain") await lookupDomain(term);
+  else if (mode === "subdomains") {
+    const apex = normalizeDomain(term);
+    if (!apex || !apex.includes(".")) throw new Error("Introdueix un domini principal vàlid.");
+    await lookupSubdomains(apex);
+  } else await lookupUsername(term);
   state.textContent = "CONSULTA COMPLETADA";
 }
 form.addEventListener("submit", async event => {
