@@ -1,0 +1,5 @@
+name = "osint-breach-proxy"
+main = "worker.js"
+compatibility_date = "2026-11-03"
+
+# Configura ALLOWED_ORIGIN com a variable d'entorn i RAPIDAPI_KEY com a secret.
