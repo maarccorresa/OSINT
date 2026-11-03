@@ -1,17 +1,24 @@
-// OSINT Workspace — fonts públiques, sense API keys.
+// OSINT Workspace — resultats resumits i fonts públiques.
 const $ = (s) => document.querySelector(s);
 const form = $("#search-form"), input = $("#term"), button = $("#search-btn");
 const panel = $("#results"), body = $("#result-body"), state = $("#result-state");
 const modeButtons = [...document.querySelectorAll(".mode-btn")];
+
 const MODE_CONFIG = {
   email: { label: "Adreça de correu", placeholder: "nom@domini.cat", title: "Cerca de correu" },
   phone: { label: "Número de telèfon", placeholder: "+34600000000", title: "Cerca de telèfon" },
   ip: { label: "Adreça IP", placeholder: "1.1.1.1", title: "Cerca d'adreça IP" },
   domain: { label: "Domini", placeholder: "exemple.cat", title: "Cerca de domini" },
-  subdomains: { label: "Domini principal", placeholder: "exemple.cat", title: "Enumeració de subdominis" },
+  subdomains: { label: "Domini principal", placeholder: "exemple.cat", title: "Cerca de subdominis" },
   username: { label: "Nom d'usuari de GitHub", placeholder: "octocat", title: "Cerca de username" }
 };
+const SOURCES = {
+  email: "XposedOrNot", phone: "libphonenumber-js",
+  ip: "Shodan InternetDB i RDAP", domain: "Cloudflare DNS i RDAP",
+  subdomains: "crt.name (via proxy CORS)", username: "GitHub"
+};
 let selectedMode = "email";
+
 function setMode(mode) {
   if (!MODE_CONFIG[mode]) return;
   selectedMode = mode;
@@ -26,139 +33,92 @@ function setMode(mode) {
   input.focus();
 }
 modeButtons.forEach(btn => btn.addEventListener("click", () => setMode(btn.dataset.mode)));
-const HISTORY_KEY = "osint-search-history-v2";
+
+const HISTORY_KEY = "osint-search-history-v3";
 let history = [];
 try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch { history = []; }
 
-const SOURCES = {
-  email: "XposedOrNot",
-  phone: "libphonenumber-js",
-  ip: "RIPEstat + RDAP",
-  domain: "Cloudflare DNS + RDAP",
-  username: "GitHub"
-};
-
 function renderHistory() {
   const el = $("#history");
-  if (!history.length) { el.className = "history-empty"; el.textContent = "Encara no has fet cap consulta."; return; }
-  el.className = ""; el.replaceChildren();
+  if (!history.length) {
+    el.className = "history-empty";
+    el.textContent = "Encara no has fet cap consulta.";
+    return;
+  }
+  el.className = "";
+  el.replaceChildren();
   history.slice(0, 12).forEach(item => {
     const row = document.createElement("div"); row.className = "history-item";
-    const term = document.createElement("span"); term.textContent = item.term;
-    const date = document.createElement("small"); date.textContent = new Date(item.date).toLocaleString("ca-ES");
+    const term = document.createElement("span");
+    term.textContent = (MODE_CONFIG[item.mode]?.label || "Consulta") + " · " + item.term;
+    const date = document.createElement("small");
+    date.textContent = new Date(item.date).toLocaleString("ca-ES");
     row.append(term, date); el.append(row);
   });
 }
+
+function setState(label, kind = "") {
+  state.textContent = label;
+  state.className = "tag" + (kind ? " tag-" + kind : "");
+}
 function showError(message) {
-  panel.classList.remove("hidden"); state.textContent = "ERROR"; body.replaceChildren();
-  const p = document.createElement("p"); p.className = "error"; p.textContent = message; body.append(p);
+  panel.classList.remove("hidden");
+  setState("NO S'HA POGUT COMPLETAR", "error");
+  body.replaceChildren();
+  const p = document.createElement("p"); p.className = "error"; p.textContent = message;
+  body.append(p);
 }
-const FIELD_LABELS = {
-  login: "Nom d'usuari", name: "Nom", bio: "Descripció", company: "Empresa",
-  location: "Ubicació", blog: "Web", public_repos: "Repositoris públics",
-  followers: "Seguidors", following: "Segueix", created_at: "Data de creació",
-  profile: "Perfil", html_url: "Perfil web", email: "Correu", country: "País",
-  countryCallingCode: "Prefix internacional", international: "Format internacional",
-  national: "Format nacional", numberType: "Tipus de número", valid: "Número vàlid",
-  possible: "Format possible", input: "Número consultat", status: "Estat DNS",
-  answers: "Registres trobats", name_servers: "Servidors DNS", events: "Esdeveniments",
-  entities: "Organitzacions", handle: "Identificador", ldhName: "Domini",
-  startAddress: "IP inicial", endAddress: "IP final", ipVersion: "Versió IP",
-  country_code: "Codi de país", port43: "Servidor WHOIS", objectClassName: "Tipus de registre",
-  type: "Tipus", data: "Valor", ttl: "Temps de vida (TTL)", network: "Xarxa",
-  prefix: "Prefix", asns: "Sistemes autònoms", holder: "Titular del rang",
-  description: "Descripció", error: "Error", message: "Missatge", date: "Data",
-  domain: "Domini", breach: "Filtració", breaches: "Filtracions", sources: "Fonts",
-  count: "Quantitat", title: "Nom", status_code: "Codi d'estat", countryCallingCode: "Prefix telefònic",
-  ldhName: "Domini", unicodeName: "Nom internacionalitzat", registrar: "Registrador",
-  registrationDate: "Data de registre", expirationDate: "Data de caducitat",
-  lastChangedDate: "Última modificació", last_update: "Última actualització",
-  notices: "Avisos", remarks: "Observacions", links: "Enllaços", rel: "Relació",
-  href: "Adreça web", value: "Valor", roles: "Funcions", vcardArray: "Dades de contacte",
-  publicIds: "Identificadors públics", cidr0_cidrs: "Rangs CIDR", country_name: "País",
-  org: "Organització", orgName: "Organització", asn: "Sistema autònom (ASN)",
-  as_name: "Nom del sistema autònom", prefixes: "Prefixos de xarxa", rir: "Registre regional",
-  query_time: "Hora de consulta", resource: "Recurs consultat", eventAction: "Acció",
-  eventDate: "Data de l'acció", nameservers: "Servidors DNS", secureDNS: "DNSSEC",
-  delegationSigned: "Delegació signada", dsData: "Registres DS", keyData: "Claus DNSSEC",
-  parentHandle: "Registre pare", rdapConformance: "Estàndards RDAP", Answer: "Respostes DNS",
-  Question: "Consulta DNS", Authority: "Servidors autoritatius", Additional: "Informació addicional",
-  Status: "Estat de la consulta DNS", Name: "Nom", Type: "Tipus de registre", TTL: "Temps de vida (TTL)",
-  Data: "Dada del registre", Flags: "Indicadors", countryCode: "Codi de país",
-  abuse: "Contacte d'abús", emailAddress: "Adreça de correu", tel: "Telèfon",
-  fn: "Nom complet", adr: "Adreça", kind: "Tipus d'entitat"
-};
-function humanLabel(key) {
-  return FIELD_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ")
-    .replace(/^./, c => c.toUpperCase());
+function addIntro(text) {
+  const p = document.createElement("p"); p.className = "results-intro"; p.textContent = text; body.append(p);
 }
-function humanValue(value) {
-  if (value === null || value === undefined || value === "") return "No disponible";
-  if (typeof value === "boolean") return value ? "Sí" : "No";
-  if (typeof value === "number") return value.toLocaleString("ca-ES");
-  if (typeof value === "string") {
-    if (/^https?:\/\//i.test(value)) return value;
-    if (/^\d{4}-\d\d-\d\dT/.test(value)) {
-      const date = new Date(value);
-      if (!Number.isNaN(date.getTime())) return date.toLocaleString("ca-ES");
-    }
-    return value;
-  }
-  return "";
+function addNotice(text, type = "info") {
+  const p = document.createElement("p"); p.className = "result-notice " + type; p.textContent = text; body.append(p);
 }
-function appendField(container, key, value, depth = 0) {
-  if (value === null || value === undefined || value === "" || depth > 8) return;
-  if (Array.isArray(value)) {
-    if (!value.length) return;
-    const group = document.createElement("section"); group.className = "result-field result-field-wide";
-    const heading = document.createElement("strong"); heading.className = "result-label"; heading.textContent = humanLabel(key);
-    group.append(heading);
-    const list = document.createElement("ul"); list.className = "result-list";
-    value.slice(0, 50).forEach((item, index) => {
-      const li = document.createElement("li");
-      if (item === null || item === undefined || item === "") return;
-      if (typeof item === "object") {
-        const nested = document.createElement("div"); nested.className = "result-nested";
-        if (Array.isArray(item)) appendField(nested, "Element " + (index + 1), item, depth + 1);
-        else Object.entries(item).forEach(([k, v]) => appendField(nested, k, v, depth + 1));
-        if (nested.childNodes.length) li.append(nested);
-      } else {
-        const text = document.createElement("span"); text.textContent = humanValue(item); li.append(text);
-      }
-      if (li.childNodes.length) list.append(li);
-    });
-    if (list.childNodes.length) { group.append(list); container.append(group); }
-    return;
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value).filter(([, v]) => v !== null && v !== undefined && v !== "");
-    if (!entries.length) return;
-    const nested = document.createElement("section"); nested.className = "result-nested result-field-wide";
-    const heading = document.createElement("h4"); heading.textContent = humanLabel(key); nested.append(heading);
-    entries.forEach(([k, v]) => appendField(nested, k, v, depth + 1));
-    container.append(nested); return;
-  }
-  const field = document.createElement("div"); field.className = "result-field";
-  const label = document.createElement("span"); label.className = "result-label"; label.textContent = humanLabel(key);
-  const val = document.createElement("span"); val.className = "result-value"; val.textContent = humanValue(value);
-  if (typeof value === "string" && /^https?:\/\//i.test(value)) {
-    const link = document.createElement("a"); link.href = value; link.target = "_blank"; link.rel = "noopener noreferrer";
-    link.textContent = value; val.replaceChildren(link);
-  }
-  field.append(label, val); container.append(field);
-}
-function card(title, source, data, description = "") {
+function card(title, source, fields, description = "") {
   const wrap = document.createElement("article"); wrap.className = "result-card";
+  const head = document.createElement("div"); head.className = "result-card-head";
   const h = document.createElement("h3"); h.textContent = title;
-  const meta = document.createElement("p"); meta.textContent = "Font: " + source + (description ? " · " + description : "");
-  const fields = document.createElement("div"); fields.className = "result-fields";
-  if (typeof data === "string") appendField(fields, "resultat", data);
-  else if (data && typeof data === "object") {
-    const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
-    entries.forEach(([key, value]) => appendField(fields, key, value));
-    if (!entries.length) appendField(fields, "resultat", "La font no ha retornat dades.");
-  } else appendField(fields, "resultat", data);
-  wrap.append(h, meta, fields); body.append(wrap);
+  const badge = document.createElement("span"); badge.className = "source-label"; badge.textContent = source;
+  head.append(h, badge);
+  wrap.append(head);
+  if (description) {
+    const desc = document.createElement("p"); desc.className = "result-description"; desc.textContent = description;
+    wrap.append(desc);
+  }
+  const grid = document.createElement("div"); grid.className = "result-fields";
+  for (const [label, raw] of Object.entries(fields || {})) {
+    if (raw === null || raw === undefined || raw === "") continue;
+    const field = document.createElement("div"); field.className = "result-field";
+    const name = document.createElement("span"); name.className = "result-label"; name.textContent = label;
+    const value = document.createElement("div"); value.className = "result-value";
+    if (Array.isArray(raw)) {
+      if (!raw.length) value.textContent = "Cap dada disponible";
+      else {
+        const list = document.createElement("ul"); list.className = "result-list";
+        raw.slice(0, 100).forEach(entry => {
+          const li = document.createElement("li"); li.textContent = typeof entry === "string" ? entry : JSON.stringify(entry);
+          list.append(li);
+        });
+        value.append(list);
+      }
+    } else if (typeof raw === "object") {
+      value.textContent = "Informació addicional disponible";
+    } else if (typeof raw === "string" && /^https?:\/\//i.test(raw)) {
+      const link = document.createElement("a"); link.href = raw; link.target = "_blank";
+      link.rel = "noopener noreferrer"; link.textContent = "Obrir font"; value.append(link);
+    } else {
+      value.textContent = typeof raw === "boolean" ? (raw ? "Sí" : "No") :
+        typeof raw === "number" ? raw.toLocaleString("ca-ES") : String(raw);
+    }
+    field.append(name, value); grid.append(field);
+  }
+  if (grid.childNodes.length) wrap.append(grid);
+  body.append(wrap);
+}
+function formatDate(value) {
+  if (!value) return "No disponible";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("ca-ES");
 }
 function isIPv4(value) {
   const parts = value.split(".");
@@ -174,192 +134,234 @@ function normalizeDomain(value) {
     return url.hostname.toLowerCase().replace(/\.$/, "");
   } catch { return ""; }
 }
-function classify(value) {
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "email";
-  if (isIPv4(value) || isIPv6(value)) return "ip";
-  if (/^\+?[0-9().\s-]{7,25}$/.test(value) && /\d/.test(value)) return "phone";
-  const domain = normalizeDomain(value);
-  if (domain && domain.includes(".") && !domain.includes(" ")) return "domain";
-  return "username";
+function validDomain(domain) {
+  return /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain);
 }
 async function getJSON(url, options = {}) {
-  const response = await fetch(url, { ...options, headers: { "Accept": "application/json", ...(options.headers || {}) } });
-  const text = await response.text();
-  let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { message: text.slice(0, 500) }; }
+  const response = await fetch(url, {
+    ...options,
+    headers: { Accept: "application/json", ...(options.headers || {}) }
+  });
+  const raw = await response.text();
+  let data;
+  try { data = raw ? JSON.parse(raw) : {}; } catch { data = { message: raw.slice(0, 300) }; }
   if (!response.ok) {
-    const error = new Error("La font ha respost HTTP " + response.status);
+    const error = new Error("La font ha retornat un error (" + response.status + ").");
     error.status = response.status; error.data = data; throw error;
   }
   return data;
 }
+
 async function lookupEmail(email) {
-  const url = "https://api.xposedornot.com/v1/check-email/" + encodeURIComponent(email);
-  const data = await getJSON(url);
-  const breaches = Array.isArray(data.breaches) ? data.breaches.flat() : [];
-  card(breaches.length ? "Correu trobat en filtracions" : "No consta en les filtracions consultades", SOURCES.email, data,
-    breaches.length + " filtració(ns) retornada(es)");
+  const data = await getJSON("https://api.xposedornot.com/v1/check-email/" + encodeURIComponent(email));
+  const rawBreaches = Array.isArray(data.breaches) ? data.breaches.flat(Infinity) : [];
+  const breaches = [...new Set(rawBreaches.map(x => typeof x === "string" ? x : x?.name).filter(Boolean))];
+  const found = breaches.length > 0;
+  card(found ? "S'han trobat filtracions" : "No consten filtracions", SOURCES.email, {
+    "Correu consultat": email,
+    "Filtracions detectades": breaches.length,
+    "Serveis afectats": breaches.length ? breaches : "No n'hi ha cap de retornat"
+  }, found
+    ? "Aquest correu apareix en conjunts de dades exposats. Canvia les contrasenyes reutilitzades i activa la verificació en dos passos."
+    : "La font consultada no ha retornat cap filtració per aquest correu. Això no garanteix que mai s'hagi exposat.");
 }
+
 async function lookupPhone(phone) {
   const lib = window.libphonenumber;
-  if (!lib || !lib.parsePhoneNumberFromString) {
-    throw new Error("No s'ha pogut carregar la biblioteca de validació telefònica. Comprova la connexió i torna-ho a provar.");
+  if (!lib?.parsePhoneNumberFromString) {
+    throw new Error("No s'ha pogut carregar el comprovador de telèfons. Revisa la connexió i torna-ho a provar.");
   }
   const parsed = lib.parsePhoneNumberFromString(phone);
-  if (!parsed) { card("Número no reconegut", SOURCES.phone, { input: phone, valid: false }); return; }
-  const info = {
-    input: phone,
-    international: parsed.formatInternational(),
-    national: parsed.formatNational(),
-    country: parsed.country || "No identificat",
-    countryCallingCode: "+" + parsed.countryCallingCode,
-    numberType: parsed.getType() || "No determinat",
-    valid: parsed.isValid(),
-    possible: parsed.isPossible()
+  if (!parsed) {
+    card("Número no reconegut", SOURCES.phone, { "Número consultat": phone, "Resultat": "No s'ha pogut interpretar" });
+    return;
+  }
+  const typeNames = {
+    MOBILE: "Mòbil", FIXED_LINE: "Telèfon fix", FIXED_LINE_OR_MOBILE: "Fix o mòbil",
+    TOLL_FREE: "Gratuït", PREMIUM_RATE: "Tarificació especial", VOIP: "Telefonia per internet",
+    PERSONAL_NUMBER: "Número personal", PAGER: "Busca-persones", UAN: "Número corporatiu",
+    VOICEMAIL: "Bústia de veu"
   };
-  card(info.valid ? "Informació del número" : "Número no vàlid o incomplet", SOURCES.phone, info,
-    "Validació de format; el país i el tipus no identifiquen el titular.");
+  const valid = parsed.isValid();
+  card(valid ? "Número amb format vàlid" : "Número no vàlid o incomplet", SOURCES.phone, {
+    "Número internacional": parsed.formatInternational(),
+    "Número nacional": parsed.formatNational(),
+    "País": parsed.country || "No identificat",
+    "Prefix": "+" + parsed.countryCallingCode,
+    "Tipus de línia": typeNames[parsed.getType()] || "No determinat",
+    "Format vàlid": valid ? "Sí" : "No",
+    "Format possible": parsed.isPossible() ? "Sí" : "No"
+  }, "Això només comprova el format i el pla de numeració. No permet saber qui és el titular ni si la línia està activa.");
 }
+
 async function lookupIP(ip) {
-  const shodanUrl = "https://internetdb.shodan.io/" + encodeURIComponent(ip);
-  const rdapUrl = "https://rdap.org/ip/" + encodeURIComponent(ip);
   const [shodanResult, rdapResult] = await Promise.allSettled([
-    getJSON(shodanUrl),
-    getJSON(rdapUrl)
+    getJSON("https://internetdb.shodan.io/" + encodeURIComponent(ip)),
+    getJSON("https://rdap.org/ip/" + encodeURIComponent(ip))
   ]);
-
   if (shodanResult.status === "fulfilled") {
-    const data = shodanResult.value;
-    const ports = Array.isArray(data.ports) ? data.ports : [];
-    const vulns = Array.isArray(data.vulns) ? data.vulns : [];
-    const hostnames = Array.isArray(data.hostnames) ? data.hostnames : [];
-    card("Serveis exposats", "Shodan InternetDB", {
-      "Ports oberts detectats": ports.length ? ports.join(", ") : "Cap port registrat",
-      "Noms de host": hostnames.length ? hostnames : "Cap nom registrat",
+    const d = shodanResult.value;
+    const ports = Array.isArray(d.ports) ? d.ports : [];
+    const hosts = Array.isArray(d.hostnames) ? d.hostnames : [];
+    const vulns = Array.isArray(d.vulns) ? d.vulns : [];
+    card("Exposició a Internet", "Shodan", {
+      "Ports detectats": ports.length ? ports.join(", ") : "Cap port registrat",
+      "Serveis identificats": Array.isArray(d.tags) && d.tags.length ? d.tags : "No especificats",
+      "Noms associats": hosts.length ? hosts : "Cap nom registrat",
       "Vulnerabilitats conegudes": vulns.length ? vulns : "Cap vulnerabilitat registrada",
-      "Fitxa completa": "https://www.shodan.io/host/" + ip
-    }, "Dades de l'última observació de Shodan; no és un escaneig en temps real.");
+      "Fitxa de Shodan": "https://www.shodan.io/host/" + encodeURIComponent(ip)
+    }, "Dades de l'índex de Shodan, no un escaneig en directe. Que no hi apareguin vulnerabilitats no vol dir que l'equip sigui segur.");
   } else {
-    card("Serveis exposats", "Shodan InternetDB", {
-      "Estat": "No s'han pogut obtenir dades",
-      "Motiu": shodanResult.reason?.message || "Font no disponible",
-      "Fitxa Shodan": "https://www.shodan.io/host/" + ip
+    card("Exposició a Internet", "Shodan", {
+      "Resultat": "No s'han pogut consultar les dades",
+      "Fitxa": "https://www.shodan.io/host/" + encodeURIComponent(ip)
     });
   }
-
   if (rdapResult.status === "fulfilled") {
-    const data = rdapResult.value;
-    const events = Array.isArray(data.events) ? data.events : [];
-    const event = action => events.find(item => item.eventAction === action)?.eventDate || null;
-    const entities = Array.isArray(data.entities) ? data.entities : [];
-    const registrar = entities.find(item => (item.roles || []).includes("registrant") || (item.roles || []).includes("registrar"));
-    const network = data.startAddress && data.endAddress
-      ? data.startAddress + " – " + data.endAddress : "No disponible";
-    card("Resum de la IP", "RDAP", {
+    const d = rdapResult.value;
+    const events = Array.isArray(d.events) ? d.events : [];
+    const event = action => events.find(x => x.eventAction === action)?.eventDate;
+    const network = d.startAddress && d.endAddress ? d.startAddress + " – " + d.endAddress : "No disponible";
+    card("A qui està assignada aquesta IP?", "Registre RDAP", {
       "Xarxa": network,
-      "País": data.country || "No identificat",
-      "Organització": data.name || data.handle || "No disponible",
-      "Tipus de registre": data.type || "No disponible",
-      "Data de registre": event("registration"),
-      "Última actualització": event("last changed")
-    }, "Informació de registre de l'adreça IP.");
+      "Organització o registre": d.name || d.handle || "No identificat",
+      "País": d.country || "No identificat",
+      "Tipus de registre": d.type || "No especificat",
+      "Última actualització": formatDate(event("last changed"))
+    }, "El registre identifica l'organització que gestiona el rang d'IP, no necessàriament la persona o el dispositiu que l'utilitza.");
   } else {
-    card("Registre de la IP", "RDAP", {
-      "Estat": "Informació de registre no disponible"
-    });
+    card("Registre de l'adreça", "RDAP", { "Resultat": "No s'ha pogut obtenir informació del registre." });
   }
+}
+
+function extractSubdomainRecords(data, raw) {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const candidates = [data.subdomains, data.results, data.names, data.records, data.data,
+      data.data?.subdomains, data.data?.results];
+    const found = candidates.find(Array.isArray);
+    if (found) return found;
+  }
+  return raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+}
+function normalizeSubdomain(item) {
+  if (typeof item === "string") return { name: item.trim(), date: null };
+  if (!item || typeof item !== "object") return null;
+  return {
+    name: String(item.subdomain || item.hostname || item.name || item.domain || item.fqdn || "").trim(),
+    date: item.first_seen || item.firstSeen || item.first_seen_at || item.date || item.firstSeenAt || null
+  };
 }
 async function lookupSubdomains(apex) {
-  const url = "https://crt.name/v1/search?apex=" + encodeURIComponent(apex) + "&format=json&dates=1";
-  const response = await fetch(url, { headers: { "Accept": "application/json, text/plain" } });
-  const raw = await response.text();
+  // crt.name no envia cap capçalera CORS. El proxy públic només transporta aquesta consulta GET.
+  const upstream = "https://crt.name/v1/search?apex=" + encodeURIComponent(apex) + "&format=json&dates=1";
+  const proxyUrl = "https://proxy.cors.dev/" + upstream;
+  let response;
+  try {
+    response = await fetch(proxyUrl, { headers: { Accept: "application/json, text/plain" } });
+  } catch {
+    throw new Error("El servei intermediari de consulta no està disponible ara mateix. Torna-ho a provar més tard.");
+  }
   if (!response.ok) {
-    const error = new Error("crt.name ha respost HTTP " + response.status);
-    error.status = response.status;
-    throw error;
+    if (response.status === 429) throw new Error("S'ha arribat al límit de consultes de subdominis. Torna-ho a provar més tard.");
+    throw new Error("No s'ha pogut consultar l'índex de subdominis (error " + response.status + ").");
   }
-
+  const raw = await response.text();
   let data;
-  try { data = raw ? JSON.parse(raw) : []; }
-  catch { data = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
+  try { data = raw ? JSON.parse(raw) : []; } catch { data = null; }
+  const names = extractSubdomainRecords(data, raw).map(normalizeSubdomain).filter(Boolean)
+    .map(item => ({ ...item, name: item.name.replace(/^\*\./, "") }))
+    .filter(item => item.name && (item.name.toLowerCase() === apex ||
+      item.name.toLowerCase().endsWith("." + apex)));
+  const unique = [...new Map(names.map(item => [item.name.toLowerCase(), item])).values()]
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const dated = unique.filter(x => x.date).length;
+  card("Subdominis trobats", "crt.name", {
+    "Domini analitzat": apex,
+    "Subdominis trobats": unique.length,
+    "Noms descoberts": unique.length ? unique.map(x => x.name) : "No s'han trobat noms"
+  }, "Són noms presents a l'índex de transparència de certificats. Alguns poden ser antics i ja no estar actius.");
+  if (!unique.length) addNotice("No s'han trobat subdominis a l'índex. Això no significa que el domini no en tingui.", "info");
+  return { count: unique.length, dated };
+}
 
-  let records = [];
-  if (Array.isArray(data)) records = data;
-  else if (data && typeof data === "object") {
-    const payload = data.data && !Array.isArray(data.data) ? data.data : data;
-    records = Array.isArray(payload.subdomains) ? payload.subdomains :
-      Array.isArray(payload.results) ? payload.results :
-      Array.isArray(payload.names) ? payload.names :
-      Array.isArray(payload.data) ? payload.data : [];
-  }
-
-  const names = records.map(item => {
-    if (typeof item === "string") return { subdomain: item.trim(), first_seen: null };
-    if (!item || typeof item !== "object") return null;
-    return {
-      subdomain: String(item.subdomain || item.hostname || item.name || item.domain || "").trim(),
-      first_seen: item.first_seen || item.firstSeen || item.date || null
-    };
-  }).filter(item => item && item.subdomain && (
-    item.subdomain.toLowerCase() === apex.toLowerCase() ||
-    item.subdomain.toLowerCase().endsWith("." + apex.toLowerCase()) ||
-    item.subdomain.startsWith("*.")
-  ));
-
-  const unique = [...new Map(names.map(item => [item.subdomain.toLowerCase(), item])).values()]
-    .sort((a, b) => a.subdomain.localeCompare(b.subdomain));
-
-  card("Subdominis descoberts", "crt.name", {
-    "Domini consultat": apex,
-    "Resultats": unique.length,
-    "Subdominis": unique.length ? unique.map(item => item.subdomain) : "No s'han trobat subdominis"
-  }, "Resultats de l'índex públic. Alguns noms poden ser antics o ja no estar actius.");
+function summarizeRdapDomain(d) {
+  const events = Array.isArray(d.events) ? d.events : [];
+  const event = action => events.find(x => x.eventAction === action)?.eventDate;
+  const nameservers = Array.isArray(d.nameservers) ? d.nameservers.map(x => x.ldhName || x.unicodeName).filter(Boolean) : [];
+  const statuses = Array.isArray(d.status) ? d.status : [];
+  const registrarEntity = (d.entities || []).find(x => (x.roles || []).includes("registrar"));
+  const registrar = registrarEntity?.vcardArray?.[1]?.find(x => x[0] === "fn")?.[3] || registrarEntity?.handle;
+  return {
+    "Registrador": registrar || "No identificat",
+    "Creat": formatDate(event("registration")),
+    "Última actualització": formatDate(event("last changed")),
+    "Caducitat": formatDate(event("expiration")),
+    "Estat del domini": statuses.length ? statuses.map(x => x.replace(/-/g, " ")).join(", ") : "No disponible",
+    "Servidors DNS": nameservers.length ? nameservers : "No disponibles",
+    "DNSSEC": d.secureDNS?.delegationSigned === true ? "Activat" :
+      d.secureDNS?.delegationSigned === false ? "Desactivat" : "No consta"
+  };
 }
 async function lookupDomain(raw) {
   const domain = normalizeDomain(raw);
-  if (!domain || !/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain))
-    throw new Error("El domini no té un format vàlid.");
+  if (!validDomain(domain)) throw new Error("Introdueix un domini vàlid, per exemple exemple.cat.");
   const types = ["A", "AAAA", "MX", "NS", "TXT"];
-  const dns = await Promise.allSettled(types.map(type =>
+  const dnsResults = await Promise.allSettled(types.map(type =>
     getJSON("https://cloudflare-dns.com/dns-query?name=" + encodeURIComponent(domain) + "&type=" + type,
-      { headers: { "Accept": "application/dns-json" } })
+      { headers: { Accept: "application/dns-json" } })
   ));
-  dns.forEach((r, i) => {
-    if (r.status === "fulfilled") {
-      const answers = (r.value.Answer || []).map(a => ({ name: a.name, type: a.type, ttl: a.TTL, data: a.data }));
-      card("DNS " + types[i], "Cloudflare DNS", { status: r.value.Status, answers });
-    } else card("DNS " + types[i] + " — no disponible", "Cloudflare DNS", { error: r.reason.message });
+  const dnsSummary = {};
+  dnsResults.forEach((result, i) => {
+    const type = types[i];
+    if (result.status !== "fulfilled") { dnsSummary[type] = "No s'ha pogut consultar"; return; }
+    const answers = (result.value.Answer || []).map(x => x.data).filter(Boolean);
+    dnsSummary[type] = answers.length ? answers.slice(0, 10) : "Cap registre trobat";
   });
+  const hasDns = Object.values(dnsSummary).some(v => Array.isArray(v));
+  card("Configuració DNS", "Cloudflare DNS", {
+    "Adreces IPv4 (A)": dnsSummary.A,
+    "Adreces IPv6 (AAAA)": dnsSummary.AAAA,
+    "Servidors de correu (MX)": dnsSummary.MX,
+    "Servidors DNS (NS)": dnsSummary.NS,
+    "Altres registres (TXT)": dnsSummary.TXT
+  }, hasDns ? "Registres publicats actualment al DNS." : "No s'han pogut obtenir registres DNS.");
   try {
-    const rdap = await getJSON("https://rdap.org/domain/" + encodeURIComponent(domain));
-    card("Registre del domini (RDAP)", "RDAP", rdap);
-  } catch (error) { card("Registre RDAP — no disponible", "RDAP", { error: error.message }); }
-  try {
-    await lookupSubdomains(domain);
-  } catch (error) {
-    card("Enumeració de subdominis — no disponible", "crt.name", {
-      error: error.message,
-      domain
-    }, "Comprova que has introduït el domini principal (eTLD+1), no un subdomini");
+    const d = await getJSON("https://rdap.org/domain/" + encodeURIComponent(domain));
+    card("Informació del registre", "RDAP", summarizeRdapDomain(d),
+      "Dades públiques del registre del domini. La informació del titular pot estar protegida.");
+  } catch {
+    card("Informació del registre", "RDAP", { "Resultat": "El registre del domini no ha respost." });
+  }
+  try { await lookupSubdomains(domain); }
+  catch (error) {
+    card("Subdominis", "crt.name", { "Resultat": "No s'ha pogut completar aquesta part de la consulta." }, error.message);
   }
 }
+
 async function lookupUsername(username) {
   const clean = username.replace(/^@/, "");
-  if (!/^[a-zA-Z0-9-]{1,39}$/.test(clean)) throw new Error("Introdueix un username vàlid per a GitHub (sense espais).");
-  const data = await getJSON("https://api.github.com/users/" + encodeURIComponent(clean));
-  const summary = {
-    login: data.login, name: data.name, bio: data.bio, company: data.company,
-    location: data.location, blog: data.blog, public_repos: data.public_repos,
-    followers: data.followers, following: data.following, created_at: data.created_at,
-    profile: data.html_url
-  };
-  card("Perfil públic de GitHub", "GitHub REST API", summary, "Només comprova aquest username a GitHub");
+  if (!/^[a-zA-Z0-9-]{1,39}$/.test(clean)) throw new Error("Introdueix un username de GitHub vàlid, sense espais.");
+  const d = await getJSON("https://api.github.com/users/" + encodeURIComponent(clean));
+  card("Perfil públic trobat", "GitHub", {
+    "Nom d'usuari": d.login,
+    "Nom": d.name || "No indicat",
+    "Descripció": d.bio || "Sense descripció",
+    "Organització": d.company || "No indicada",
+    "Ubicació": d.location || "No indicada",
+    "Web": d.blog || "No indicada",
+    "Repositoris públics": d.public_repos,
+    "Seguidors": d.followers,
+    "Seguint": d.following,
+    "Compte creat": formatDate(d.created_at),
+    "Perfil": d.html_url
+  }, "Només s'ha comprovat GitHub. No s'ha cercat aquest nom a altres xarxes.");
 }
+
 async function investigate(term) {
   const mode = selectedMode;
-  state.textContent = "CONSULTANT"; body.replaceChildren();
-  const intro = document.createElement("p");
-  intro.textContent = MODE_CONFIG[mode].title + " · Font: " + (mode === "subdomains" ? "crt.name" : SOURCES[mode]);
-  body.append(intro);
+  body.replaceChildren();
+  addIntro(MODE_CONFIG[mode].title + " · " + SOURCES[mode]);
   if (mode === "email") {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(term)) throw new Error("Introdueix una adreça de correu vàlida.");
     await lookupEmail(term);
@@ -367,33 +369,45 @@ async function investigate(term) {
   else if (mode === "ip") {
     if (!isIPv4(term) && !isIPv6(term)) throw new Error("Introdueix una adreça IPv4 o IPv6 vàlida.");
     await lookupIP(term);
-  } else if (mode === "domain") await lookupDomain(term);
-  else if (mode === "subdomains") {
-    const apex = normalizeDomain(term);
-    if (!apex || !apex.includes(".")) throw new Error("Introdueix un domini principal vàlid.");
-    await lookupSubdomains(apex);
+  } else if (mode === "domain" || mode === "subdomains") {
+    const domain = normalizeDomain(term);
+    if (!validDomain(domain)) throw new Error("Introdueix un domini principal vàlid, per exemple exemple.cat.");
+    if (mode === "domain") await lookupDomain(domain);
+    else await lookupSubdomains(domain);
   } else await lookupUsername(term);
-  state.textContent = "CONSULTA COMPLETADA";
+  setState("CONSULTA COMPLETADA", "success");
 }
+
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  const term = input.value.trim(); if (!term) return;
-  button.disabled = true; button.textContent = "Consultant…";
-  panel.classList.remove("hidden"); state.textContent = "CONSULTANT"; body.replaceChildren();
+  const term = input.value.trim();
+  if (!term) return;
+  button.disabled = true;
+  button.textContent = "Consultant…";
+  panel.classList.remove("hidden");
+  setState("CONSULTANT");
+  body.replaceChildren();
   try {
     await investigate(term);
-    history.unshift({ term, date: new Date().toISOString() });
-    history = history.slice(0, 30); localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); renderHistory();
+    history.unshift({ term, mode: selectedMode, date: new Date().toISOString() });
+    history = history.slice(0, 30);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistory();
   } catch (error) {
     showError(error.status === 404 ? "No s'han trobat dades per a aquest identificador." :
-      error.status === 429 ? "Has arribat al límit de consultes de la font. Espera una estona i torna-ho a provar." :
+      error.status === 429 ? "Has arribat al límit de consultes d'aquesta font. Espera una estona i torna-ho a provar." :
       error.message || "No s'ha pogut completar la consulta.");
   } finally {
-    button.disabled = false; button.innerHTML = "<span>⌕</span> Investigar";
+    button.disabled = false;
+    button.innerHTML = "<span>⌕</span> Investigar";
   }
 });
 $("#clear-history").addEventListener("click", () => {
-  history = []; localStorage.removeItem(HISTORY_KEY); renderHistory();
+  history = [];
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
 });
 renderHistory();
-if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
