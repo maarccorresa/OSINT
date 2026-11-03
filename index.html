@@ -25,13 +25,6 @@
 <form id="search-form">
 <label id="term-label" for="term">Adreça de correu</label>
 <div class="search-row"><input id="term" name="term" autocomplete="off" placeholder="nom@domini.cat" required maxlength="254"><button id="search-btn" type="submit"><span>⌕</span> Investigar</button></div>
-<details class="api-config" id="phone-api-config">
-<summary>Configurar identificació de trucades</summary>
-<p class="hint">Enganxa aquí l'adreça del teu Cloudflare Worker. Les claus de TrueCNAM i Call Control es configuren a Cloudflare i no es guarden en aquesta pàgina.</p>
-<label for="phone-api-endpoint">Adreça del servidor</label>
-<div class="api-config-row"><input id="phone-api-endpoint" type="url" placeholder="https://osint-phone-intel.usuari.workers.dev" autocomplete="url"><button id="save-phone-api" type="button">Desar</button></div>
-<p id="phone-api-status" class="hint">Sense configurar: només es mostrarà la informació bàsica del número.</p>
-</details>
 <p class="hint">Les consultes s'envien a serveis públics externs. Els resultats depenen de la cobertura de cada font. No facis cerques sobre dades personals sense autorització.</p>
 </form>
 </section>
