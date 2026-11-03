@@ -389,25 +389,7 @@ form.addEventListener("submit", async event => {
   try {
     await investigate(term);
     history.unshift({ term, date: new Date().toISOString() });
-    history = history.slice(0, 30); localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); const phoneEndpointInput = $("#phone-api-endpoint");
-const phoneEndpointStatus = $("#phone-api-status");
-if (phoneEndpointInput) {
-  phoneEndpointInput.value = phoneApiEndpoint();
-  if (phoneEndpointStatus && phoneApiEndpoint()) phoneEndpointStatus.textContent = "Servidor configurat.";
-  $("#save-phone-api").addEventListener("click", () => {
-    const raw = phoneEndpointInput.value.trim().replace(/\\/$/, "");
-    try {
-      const url = new URL(raw);
-      if (url.protocol !== "https:") throw new Error();
-      localStorage.setItem(PHONE_API_STORAGE_KEY, url.origin);
-      phoneEndpointInput.value = url.origin;
-      phoneEndpointStatus.textContent = "Adreça desada en aquest dispositiu.";
-    } catch {
-      phoneEndpointStatus.textContent = "Introdueix una adreça HTTPS vàlida del Cloudflare Worker.";
-    }
-  });
-}
-renderHistory();
+    history = history.slice(0, 30); localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); renderHistory();
   } catch (error) {
     showError(error.status === 404 ? "No s'han trobat dades per a aquest identificador." :
       error.status === 429 ? "Has arribat al límit de consultes de la font. Espera una estona i torna-ho a provar." :
@@ -419,5 +401,24 @@ renderHistory();
 $("#clear-history").addEventListener("click", () => {
   history = []; localStorage.removeItem(HISTORY_KEY); renderHistory();
 });
+const phoneEndpointInput = $("#phone-api-endpoint");
+const phoneEndpointStatus = $("#phone-api-status");
+if (phoneEndpointInput) {
+  phoneEndpointInput.value = phoneApiEndpoint();
+  if (phoneEndpointStatus && phoneApiEndpoint()) phoneEndpointStatus.textContent = "Servidor configurat.";
+  $("#save-phone-api").addEventListener("click", () => {
+    const rawValue = phoneEndpointInput.value.trim();
+    const raw = rawValue.endsWith("/") ? rawValue.slice(0, -1) : rawValue;
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:") throw new Error();
+      localStorage.setItem(PHONE_API_STORAGE_KEY, url.origin);
+      phoneEndpointInput.value = url.origin;
+      phoneEndpointStatus.textContent = "Adreça desada en aquest dispositiu.";
+    } catch {
+      phoneEndpointStatus.textContent = "Introdueix una adreça HTTPS vàlida del Cloudflare Worker.";
+    }
+  });
+}
 renderHistory();
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
