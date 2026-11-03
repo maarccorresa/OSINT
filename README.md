@@ -1,31 +1,26 @@
 # OSINT Intelligence Workspace
 
-PWA inicial per centralitzar consultes OSINT. Inclou una primera integració amb BreachDirectory via Cloudflare Worker perquè la clau de RapidAPI no quedi exposada al navegador.
+PWA per consultar identificadors amb fonts públiques, sense API keys ni comptes.
 
-## Desplegament de la web
+## Desplegament
 1. Activa GitHub Pages a **Settings → Pages → Deploy from a branch → main / root**.
-2. La web quedarà a https://maarccorresa.github.io/OSINT/ (quan Pages acabi el desplegament).
+2. Web: https://maarccorresa.github.io/OSINT/
+3. No cal desplegar Cloudflare Worker ni configurar secrets.
 
-## Configurar BreachDirectory (Cloudflare Worker)
-Cal tenir una subscripció/API key de BreachDirectory a RapidAPI.
+## Fonts integrades
+- **Email:** XposedOrNot `GET https://api.xposedornot.com/v1/check-email/{email}`. L'API gratuïta no requereix clau per aquest endpoint. Té límits per IP: 2 peticions/segon, 25/hora i 100/dia. Els endpoints de domini sí que requereixen clau. Documentació: https://xposedornot.com/api_doc
+- **Telèfon:** libphonenumber-js carregada des de jsDelivr. Valida i normalitza números internacionals; no identifica titulars ni operadora. Documentació: https://github.com/catamphetamine/libphonenumber-js
+- **IP:** RIPEstat (WHOIS i informació de routing) + RDAP públic. RIPEstat: https://stat.ripe.net/docs/
+- **Domini:** Cloudflare DNS over HTTPS (A, AAAA, MX, NS, TXT) + RDAP. DNS docs: https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/
+- **Username:** perfil públic de GitHub. Sense token, l'API REST té un límit general de 60 peticions/hora per IP; els endpoints de cerca tenen límits més baixos. Docs: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
 
-1. Instal·la Node.js i Wrangler: `npm install -g wrangler`.
-2. Entra a la carpeta `worker` i autentica't: `wrangler login`.
-3. Defineix l'origen permès (substitueix-lo per l'URL real de GitHub Pages):
-   `wrangler secret put ALLOWED_ORIGIN` no és secret, així que defineix-lo com a variable al tauler de Cloudflare Workers → Settings → Variables, valor `https://maarccorresa.github.io`.
-4. Desa la clau de RapidAPI com a secret: `wrangler secret put RAPIDAPI_KEY`.
-5. Desplega: `wrangler deploy`.
-6. Copia la URL del Worker (ex. `https://osint-breach-proxy.<subdomini>.workers.dev`) i enganxa-la a la constant `API_URL` de `app.js`.
-7. Fes commit i espera que GitHub Pages publiqui els canvis.
-
-## API utilitzada
-GET `https://breachdirectory.p.rapidapi.com/?func=auto&term=<identificador>`
-Headers: `X-RapidAPI-Key` i `X-RapidAPI-Host: breachdirectory.p.rapidapi.com`.
-
-El proxy elimina camps amb contrasenyes, hashes, credencials i tokens abans de retornar el resultat. No es fan cerques de contrasenyes. El mode `auto` deixa que el proveïdor interpreti el tipus d'identificador; no es garanteix que accepti telèfons o tots els formats. Consulta la documentació i els límits del teu pla RapidAPI.
+## Limitacions
+- Les fonts són globals, no exclusivament europees. La cobertura d'un número o IP depèn de la font.
+- La validació telefònica no revela el titular ni confirma que el número estigui actiu.
+- GitHub només comprova si existeix un perfil amb aquell username a GitHub, no a totes les xarxes.
+- Les APIs externes poden tenir límits, canviar o bloquejar peticions del navegador (CORS). Si una font bloqueja CORS, caldrà un proxy públic propi o una alternativa compatible; no s'ha d'afegir cap clau secreta al frontend.
+- Els resultats de filtracions poden ser incomplets. No es mostren contrasenyes ni hashes.
+- L'historial es desa al localStorage del navegador i es pot esborrar.
 
 ## Privacitat i ús
-- Les cerques es transmeten a BreachDirectory/RapidAPI; no són consultes locals.
-- L'historial de cerques es desa al localStorage del navegador i es pot esborrar.
-- Utilitza-ho només per a investigacions autoritzades i dades que tinguis dret a consultar.
-- No posis mai la clau RapidAPI a `app.js`, GitHub Pages o cap codi del navegador.
+Les cerques s'envien als proveïdors indicats. No facis consultes sobre dades personals sense autorització i revisa les condicions d'ús de cada font.
