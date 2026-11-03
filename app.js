@@ -45,7 +45,24 @@ const FIELD_LABELS = {
   prefix: "Prefix", asns: "Sistemes autònoms", holder: "Titular del rang",
   description: "Descripció", error: "Error", message: "Missatge", date: "Data",
   domain: "Domini", breach: "Filtració", breaches: "Filtracions", sources: "Fonts",
-  count: "Quantitat", title: "Nom", status_code: "Codi d'estat", countryCallingCode: "Prefix telefònic"
+  count: "Quantitat", title: "Nom", status_code: "Codi d'estat", countryCallingCode: "Prefix telefònic",
+  ldhName: "Domini", unicodeName: "Nom internacionalitzat", registrar: "Registrador",
+  registrationDate: "Data de registre", expirationDate: "Data de caducitat",
+  lastChangedDate: "Última modificació", last_update: "Última actualització",
+  notices: "Avisos", remarks: "Observacions", links: "Enllaços", rel: "Relació",
+  href: "Adreça web", value: "Valor", roles: "Funcions", vcardArray: "Dades de contacte",
+  publicIds: "Identificadors públics", cidr0_cidrs: "Rangs CIDR", country_name: "País",
+  org: "Organització", orgName: "Organització", asn: "Sistema autònom (ASN)",
+  as_name: "Nom del sistema autònom", prefixes: "Prefixos de xarxa", rir: "Registre regional",
+  query_time: "Hora de consulta", resource: "Recurs consultat", eventAction: "Acció",
+  eventDate: "Data de l'acció", nameservers: "Servidors DNS", secureDNS: "DNSSEC",
+  delegationSigned: "Delegació signada", dsData: "Registres DS", keyData: "Claus DNSSEC",
+  parentHandle: "Registre pare", rdapConformance: "Estàndards RDAP", Answer: "Respostes DNS",
+  Question: "Consulta DNS", Authority: "Servidors autoritatius", Additional: "Informació addicional",
+  Status: "Estat de la consulta DNS", Name: "Nom", Type: "Tipus de registre", TTL: "Temps de vida (TTL)",
+  Data: "Dada del registre", Flags: "Indicadors", countryCode: "Codi de país",
+  abuse: "Contacte d'abús", emailAddress: "Adreça de correu", tel: "Telèfon",
+  fn: "Nom complet", adr: "Adreça", kind: "Tipus d'entitat"
 };
 function humanLabel(key) {
   return FIELD_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ")
@@ -65,29 +82,36 @@ function humanValue(value) {
   }
   return "";
 }
-function appendField(container, key, value) {
-  if (value === null || value === undefined || value === "") return;
+function appendField(container, key, value, depth = 0) {
+  if (value === null || value === undefined || value === "" || depth > 8) return;
   if (Array.isArray(value)) {
     if (!value.length) return;
-    const group = document.createElement("div"); group.className = "result-field result-field-wide";
-    const label = document.createElement("strong"); label.textContent = humanLabel(key);
-    group.append(label);
+    const group = document.createElement("section"); group.className = "result-field result-field-wide";
+    const heading = document.createElement("strong"); heading.className = "result-label"; heading.textContent = humanLabel(key);
+    group.append(heading);
     const list = document.createElement("ul"); list.className = "result-list";
-    value.slice(0, 30).forEach(item => {
+    value.slice(0, 50).forEach((item, index) => {
       const li = document.createElement("li");
-      if (item && typeof item === "object") {
-        const parts = Object.entries(item).filter(([,v]) => v !== null && v !== undefined && v !== "")
-          .slice(0, 8).map(([k,v]) => humanLabel(k) + ": " + (typeof v === "object" ? JSON.stringify(v) : humanValue(v)));
-        li.textContent = parts.join(" · ");
-      } else li.textContent = humanValue(item);
-      list.append(li);
+      if (item === null || item === undefined || item === "") return;
+      if (typeof item === "object") {
+        const nested = document.createElement("div"); nested.className = "result-nested";
+        if (Array.isArray(item)) appendField(nested, "Element " + (index + 1), item, depth + 1);
+        else Object.entries(item).forEach(([k, v]) => appendField(nested, k, v, depth + 1));
+        if (nested.childNodes.length) li.append(nested);
+      } else {
+        const text = document.createElement("span"); text.textContent = humanValue(item); li.append(text);
+      }
+      if (li.childNodes.length) list.append(li);
     });
-    group.append(list); container.append(group); return;
+    if (list.childNodes.length) { group.append(list); container.append(group); }
+    return;
   }
-  if (value && typeof value === "object") {
-    const nested = document.createElement("div"); nested.className = "result-nested";
+  if (typeof value === "object") {
+    const entries = Object.entries(value).filter(([, v]) => v !== null && v !== undefined && v !== "");
+    if (!entries.length) return;
+    const nested = document.createElement("section"); nested.className = "result-nested result-field-wide";
     const heading = document.createElement("h4"); heading.textContent = humanLabel(key); nested.append(heading);
-    Object.entries(value).forEach(([k,v]) => appendField(nested, k, v));
+    entries.forEach(([k, v]) => appendField(nested, k, v, depth + 1));
     container.append(nested); return;
   }
   const field = document.createElement("div"); field.className = "result-field";
