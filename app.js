@@ -201,7 +201,7 @@ async function lookupEmail(email) {
 }
 const PHONE_API_STORAGE_KEY = "osint-phone-intel-endpoint";
 function phoneApiEndpoint() {
-  return (localStorage.getItem(PHONE_API_STORAGE_KEY) || "").trim().replace(/\\/$/, "");
+  return (localStorage.getItem(PHONE_API_STORAGE_KEY) || "").trim().replace(/\/$/, "");
 }
 function renderPhoneIntel(data) {
   const tc = data?.truecnam || {};
@@ -244,14 +244,21 @@ async function lookupPhoneIntel(phone) {
     }, "La informació bàsica del número continua disponible.");
     return;
   }
-  const response = await fetch(endpoint + "/phone", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "El servidor d'identificació ha respost HTTP " + response.status);
-  renderPhoneIntel(data);
+  try {
+    const response = await fetch(endpoint + "/phone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
+    renderPhoneIntel(data);
+  } catch (error) {
+    card("Identificació del número no disponible", "TrueCNAM + Call Control", {
+      "Estat": "No s'ha pogut connectar amb el servei",
+      "Detall": error.message || "Comprova la configuració del servidor."
+    });
+  }
 }
 async function lookupPhone(phone) {
   const lib = window.libphonenumber;
