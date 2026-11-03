@@ -220,6 +220,7 @@ async function lookupPhone(phone) {
     "Validació de format; no identifica el titular ni garanteix l'operadora");
 }
 async function lookupIP(ip) {
+  card("Consultar a Shodan", "Shodan", { "Fitxa de Shodan": "https://www.shodan.io/host/" + ip }, "Obre la fitxa pública de Shodan; algunes dades poden requerir iniciar sessió");
   const tasks = [
     ["RIPEstat — informació de registre", "RIPEstat", "https://stat.ripe.net/data/whois/data.json?resource=" + encodeURIComponent(ip)],
     ["RIPEstat — informació de routing", "RIPEstat", "https://stat.ripe.net/data/network-info/data.json?resource=" + encodeURIComponent(ip)],
