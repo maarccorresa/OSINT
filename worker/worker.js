@@ -54,7 +54,7 @@ async function callControl(number, env) {
   if (!env.CALLCONTROL_API_KEY) {
     return { status: "not_configured", source: "Call Control" };
   }
-  const digits = number.replace(/\\D/g, "");
+  const digits = number.replace(/\D/g, "");
   const url = "https://api.callcontrol.com/api/2015-11-01/Reputation/" +
     encodeURIComponent(digits) + "?api_key=" + encodeURIComponent(env.CALLCONTROL_API_KEY);
   const response = await fetch(url);
@@ -92,7 +92,7 @@ export default {
     let body;
     try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400, origin); }
     const phone = String(body.phone || "");
-    if (!/^\\+[1-9]\\d{7,14}$/.test(phone)) {
+    if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
       return json({ error: "Phone must be in E.164 format" }, 400, origin);
     }
     const results = await Promise.allSettled([
