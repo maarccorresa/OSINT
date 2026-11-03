@@ -280,7 +280,7 @@ async function lookupSubdomains(apex) {
 
   let data;
   try { data = raw ? JSON.parse(raw) : []; }
-  catch { data = raw.split(/\\r?\\n/).map(line => line.trim()).filter(Boolean); }
+  catch { data = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean); }
 
   let records = [];
   if (Array.isArray(data)) records = data;
