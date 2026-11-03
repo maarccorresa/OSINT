@@ -29,13 +29,88 @@ function showError(message) {
   panel.classList.remove("hidden"); state.textContent = "ERROR"; body.replaceChildren();
   const p = document.createElement("p"); p.className = "error"; p.textContent = message; body.append(p);
 }
+const FIELD_LABELS = {
+  login: "Nom d'usuari", name: "Nom", bio: "Descripció", company: "Empresa",
+  location: "Ubicació", blog: "Web", public_repos: "Repositoris públics",
+  followers: "Seguidors", following: "Segueix", created_at: "Data de creació",
+  profile: "Perfil", html_url: "Perfil web", email: "Correu", country: "País",
+  countryCallingCode: "Prefix internacional", international: "Format internacional",
+  national: "Format nacional", numberType: "Tipus de número", valid: "Número vàlid",
+  possible: "Format possible", input: "Número consultat", status: "Estat DNS",
+  answers: "Registres trobats", name_servers: "Servidors DNS", events: "Esdeveniments",
+  entities: "Organitzacions", handle: "Identificador", ldhName: "Domini",
+  startAddress: "IP inicial", endAddress: "IP final", ipVersion: "Versió IP",
+  country_code: "Codi de país", port43: "Servidor WHOIS", objectClassName: "Tipus de registre",
+  type: "Tipus", data: "Valor", ttl: "Temps de vida (TTL)", network: "Xarxa",
+  prefix: "Prefix", asns: "Sistemes autònoms", holder: "Titular del rang",
+  description: "Descripció", error: "Error", message: "Missatge", date: "Data",
+  domain: "Domini", breach: "Filtració", breaches: "Filtracions", sources: "Fonts",
+  count: "Quantitat", title: "Nom", status_code: "Codi d'estat", countryCallingCode: "Prefix telefònic"
+};
+function humanLabel(key) {
+  return FIELD_LABELS[key] || key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ")
+    .replace(/^./, c => c.toUpperCase());
+}
+function humanValue(value) {
+  if (value === null || value === undefined || value === "") return "No disponible";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "number") return value.toLocaleString("ca-ES");
+  if (typeof value === "string") {
+    if (/^https?:\/\//i.test(value)) return value;
+    if (/^\d{4}-\d\d-\d\dT/.test(value)) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return date.toLocaleString("ca-ES");
+    }
+    return value;
+  }
+  return "";
+}
+function appendField(container, key, value) {
+  if (value === null || value === undefined || value === "") return;
+  if (Array.isArray(value)) {
+    if (!value.length) return;
+    const group = document.createElement("div"); group.className = "result-field result-field-wide";
+    const label = document.createElement("strong"); label.textContent = humanLabel(key);
+    group.append(label);
+    const list = document.createElement("ul"); list.className = "result-list";
+    value.slice(0, 30).forEach(item => {
+      const li = document.createElement("li");
+      if (item && typeof item === "object") {
+        const parts = Object.entries(item).filter(([,v]) => v !== null && v !== undefined && v !== "")
+          .slice(0, 8).map(([k,v]) => humanLabel(k) + ": " + (typeof v === "object" ? JSON.stringify(v) : humanValue(v)));
+        li.textContent = parts.join(" · ");
+      } else li.textContent = humanValue(item);
+      list.append(li);
+    });
+    group.append(list); container.append(group); return;
+  }
+  if (value && typeof value === "object") {
+    const nested = document.createElement("div"); nested.className = "result-nested";
+    const heading = document.createElement("h4"); heading.textContent = humanLabel(key); nested.append(heading);
+    Object.entries(value).forEach(([k,v]) => appendField(nested, k, v));
+    container.append(nested); return;
+  }
+  const field = document.createElement("div"); field.className = "result-field";
+  const label = document.createElement("span"); label.className = "result-label"; label.textContent = humanLabel(key);
+  const val = document.createElement("span"); val.className = "result-value"; val.textContent = humanValue(value);
+  if (typeof value === "string" && /^https?:\/\//i.test(value)) {
+    const link = document.createElement("a"); link.href = value; link.target = "_blank"; link.rel = "noopener noreferrer";
+    link.textContent = value; val.replaceChildren(link);
+  }
+  field.append(label, val); container.append(field);
+}
 function card(title, source, data, description = "") {
   const wrap = document.createElement("article"); wrap.className = "result-card";
   const h = document.createElement("h3"); h.textContent = title;
   const meta = document.createElement("p"); meta.textContent = "Font: " + source + (description ? " · " + description : "");
-  const pre = document.createElement("pre"); pre.className = "result-data";
-  pre.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-  wrap.append(h, meta, pre); body.append(wrap);
+  const fields = document.createElement("div"); fields.className = "result-fields";
+  if (typeof data === "string") appendField(fields, "resultat", data);
+  else if (data && typeof data === "object") {
+    const entries = Object.entries(data).filter(([, value]) => value !== undefined && value !== null && value !== "");
+    entries.forEach(([key, value]) => appendField(fields, key, value));
+    if (!entries.length) appendField(fields, "resultat", "La font no ha retornat dades.");
+  } else appendField(fields, "resultat", data);
+  wrap.append(h, meta, fields); body.append(wrap);
 }
 function isIPv4(value) {
   const parts = value.split(".");
