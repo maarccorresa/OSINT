@@ -32,7 +32,7 @@ try { history = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch {
 
 const SOURCES = {
   email: "XposedOrNot",
-  phone: "libphonenumber-js",
+  phone: "libphonenumber-js + TrueCNAM + Call Control",
   ip: "RIPEstat + RDAP",
   domain: "Cloudflare DNS + RDAP",
   username: "GitHub"
