@@ -153,7 +153,20 @@ async function getJSON(url, options = {}) {
 }
 
 async function lookupEmail(email) {
-  const data = await getJSON("https://api.xposedornot.com/v1/check-email/" + encodeURIComponent(email));
+  let data;
+  try {
+    data = await getJSON("https://api.xposedornot.com/v1/check-email/" + encodeURIComponent(email));
+  } catch (error) {
+    // XposedOrNot pot retornar 404 quan no hi ha cap filtració registrada.
+    if (error.status === 404) {
+      card("No consten filtracions", SOURCES.email, {
+        "Correu consultat": email,
+        "Resultat": "La font no ha trobat aquest correu en les filtracions consultades."
+      }, "És un bon senyal, però no garanteix que el correu no s'hagi exposat mai.");
+      return;
+    }
+    throw error;
+  }
   const rawBreaches = Array.isArray(data.breaches) ? data.breaches.flat(Infinity) : [];
   const breaches = [...new Set(rawBreaches.map(x => typeof x === "string" ? x : x?.name).filter(Boolean))];
   const found = breaches.length > 0;
